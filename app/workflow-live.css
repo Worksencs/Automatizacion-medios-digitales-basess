@@ -1,0 +1,34 @@
+.workflow-live-panel { position:relative; overflow:hidden; margin-bottom:17px; padding:20px; border:1px solid #203a5e; border-radius:13px; background:radial-gradient(circle at 85% 0,#1b4063 0,transparent 38%),#0f1e31; color:#f3f7fc; box-shadow:0 15px 35px #13243c1c; }
+.workflow-live-panel::before { content:""; position:absolute; inset:0; background:linear-gradient(90deg,#ffffff08 1px,transparent 1px),linear-gradient(#ffffff08 1px,transparent 1px); background-size:28px 28px; mask-image:linear-gradient(to bottom,#000,transparent); }
+.workflow-live-panel > header,.workflow-agent-lane,.workflow-live-progress,.workflow-live-panel > p,.workflow-live-panel > button { position:relative; }
+.workflow-live-panel > header { display:flex; align-items:center; justify-content:space-between; gap:22px; }
+.workflow-live-panel header span { color:#7fa2c8; font-size:8px; font-weight:900; letter-spacing:.11em; }
+.workflow-live-panel header span i { display:inline-block; width:7px; height:7px; margin-right:7px; border-radius:50%; background:#71849a; }
+.workflow-live-panel.is-running header span i { background:#45dda3; box-shadow:0 0 0 5px #45dda31d; animation:workflowPulse 1.2s infinite; }
+.workflow-live-panel h2 { margin:7px 0 5px; font-size:18px; }
+.workflow-live-panel header p { max-width:720px; margin:0; color:#9bb0c7; font-size:10px; line-height:1.5; }
+.workflow-live-status { text-align:right; }
+.workflow-live-status strong,.workflow-live-status small { display:block; }
+.workflow-live-status strong { font-size:28px; letter-spacing:-.05em; }
+.workflow-live-status small { margin-top:3px; color:#63dab1; font-size:8px; font-weight:800; }
+.workflow-live-progress { height:5px; margin:17px 0 14px; overflow:hidden; border-radius:5px; background:#263a50; }
+.workflow-live-progress i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#397cf0,#4ce0a7); transition:width .45s ease; }
+.workflow-agent-lane { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.workflow-agent-lane article { display:grid; grid-template-columns:34px 1fr auto; align-items:center; gap:9px; min-width:0; padding:10px; border:1px solid #2b4058; border-radius:9px; background:#14263a; color:#75899f; transition:.2s; }
+.workflow-agent-lane article > span { width:34px; height:34px; display:grid; place-items:center; border-radius:8px; background:#26384c; color:#91a5bb; font-size:8px; font-weight:950; }
+.workflow-agent-lane article strong,.workflow-agent-lane article small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.workflow-agent-lane article strong { font-size:10px; }
+.workflow-agent-lane article small { margin-top:3px; font-size:7px; }
+.workflow-agent-lane article em { font-size:6px; font-style:normal; font-weight:900; }
+.workflow-agent-lane article.active { border-color:#3d82de; background:#183759; color:#e9f4ff; box-shadow:inset 3px 0 #4d96f1; }
+.workflow-agent-lane article.active > span { background:#3478d2; color:#fff; }
+.workflow-agent-lane article.active em { color:#54e2ae; }
+.workflow-agent-lane article.done { border-color:#28513f; background:#153126; color:#bfeada; }
+.workflow-agent-lane article.done > span { background:#23543f; color:#67e2b5; }
+.workflow-agent-lane article.done em { color:#57d5a7; }
+.workflow-success,.workflow-error { margin:13px 0 0!important; padding:9px 11px; border-radius:8px; font-size:9px!important; }
+.workflow-success { background:#173d31; color:#a7ecd4; }
+.workflow-error { background:#4b282b; color:#ffc3c3; }
+.workflow-live-panel > button { margin-top:12px; border:0; }
+@keyframes workflowPulse { 50% { opacity:.45; transform:scale(.82); } }
+@media (max-width:800px) { .workflow-live-panel > header { align-items:flex-start; flex-direction:column; } .workflow-live-status { text-align:left; } .workflow-agent-lane { grid-template-columns:1fr; } }

@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { calculateTrendScore } from "@/src/domain/scoring";
+describe("puntuación determinista", () => { it("aplica exactamente los pesos 35/25/20/20", () => { const result = calculateTrendScore({ velocity: 100, recurrence: 80, sourceQuality: 50, guatemalaRelevance: 75, evidence: {} }); expect(result.total).toBe(80); expect(result.formulaVersion).toBe("1.0.0"); expect(result.explanation).toContain("Total determinista"); }); it("rechaza parciales fuera de rango", () => expect(() => calculateTrendScore({ velocity: 101, recurrence: 0, sourceQuality: 0, guatemalaRelevance: 0, evidence: {} })).toThrow()); });

@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { assertTransition, canTransition } from "@/src/domain/state-machine";
+describe("máquina de estados", () => { it("acepta el flujo esperado", () => expect(canTransition("DRAFTS_READY", "SYNCING_NOTION")).toBe(true)); it("permite crear borradores preventivos con evidencia incompleta", () => expect(canTransition("EVIDENCE_INCOMPLETE", "GENERATING_VARIANTS")).toBe(true)); it("impide saltarse la revisión", () => expect(() => assertTransition("DRAFTS_READY", "APPROVED")).toThrow("Transición inválida")); it("no contiene PUBLISHED", async () => { const stateMachine = await import("@/src/domain/state-machine"); expect(stateMachine.workflowStates).not.toContain("PUBLISHED"); }); });

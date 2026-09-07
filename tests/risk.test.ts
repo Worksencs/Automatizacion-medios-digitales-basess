@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { classifyEditorialRisk } from "@/src/domain/risk";
+describe("riesgo editorial", () => { it("eleva política a alto", () => expect(classifyEditorialRisk({ title: "Elección y presupuesto del Congreso" }).level).toBe("HIGH")); it("no confunde selección con elección", () => expect(classifyEditorialRisk({ title: "Messi anuncia su retirada de la selección argentina" }).matchedRules).not.toContain("elección")); it("eleva víctimas o menores a crítico", () => expect(classifyEditorialRisk({ title: "Caso que involucra a un menor y una víctima" }).level).toBe("CRITICAL")); it("nunca reduce una sugerencia del modelo", () => expect(classifyEditorialRisk({ title: "Agenda cultural", suggested: "HIGH" }).level).toBe("HIGH")); });

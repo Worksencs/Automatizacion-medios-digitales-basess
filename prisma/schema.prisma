@@ -1,0 +1,662 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WorkflowStatus {
+  DETECTED
+  SCORING
+  SCORED
+  INVESTIGATING
+  EVIDENCE_INCOMPLETE
+  EVIDENCE_READY
+  GENERATING_VARIANTS
+  DRAFTS_READY
+  SYNCING_NOTION
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  NEEDS_REVISION
+  FAILED
+  CANCELLED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Verdict {
+  CONFIRMED
+  PARTIALLY_CONFIRMED
+  INCOMPLETE
+  DOUBTFUL
+  NOT_PUBLISHABLE
+}
+
+enum VariantStatus {
+  DRAFT
+  NEEDS_REVIEW
+  APPROVED
+  REJECTED
+  NEEDS_REVISION
+}
+
+enum ApprovalAction {
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+  EDIT
+  COMMENT
+  ASSIGN
+}
+
+enum SourceType {
+  OFFICIAL
+  MEDIA
+  COMMUNITY
+  OTHER
+}
+
+enum AccessStatus {
+  ACCESSIBLE
+  BLOCKED
+  TIMEOUT
+  NOT_FOUND
+  ERROR
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum NotionSyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  EXCEPTION
+}
+
+enum VideoProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  BLOCKED
+  IN_REVIEW
+  READY
+  CANCELLED
+}
+
+enum VideoStage {
+  BRIEF
+  FACT_CHECK
+  SCRIPT
+  VISUAL_PLAN
+  PRODUCTION
+  EDITING
+  EDITORIAL_REVIEW
+  DIRECTION_REVIEW
+  COMPLETE
+}
+
+enum VideoTaskStatus {
+  PENDING
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+enum VideoEvidenceType {
+  NOTE
+  LINK
+  CHECKLIST
+  FILE_REFERENCE
+  STATUS_CHANGE
+}
+
+enum AgentRunStatus {
+  IDLE
+  RUNNING
+  WAITING_ADMIN
+  COMPLETED
+  FAILED
+  PAUSED
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  permissions Json
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id          String     @id @default(uuid()) @db.Uuid
+  email       String     @unique
+  name        String
+  active      Boolean    @default(true)
+  roleId      String     @db.Uuid
+  role        Role       @relation(fields: [roleId], references: [id])
+  outletId    String?    @db.Uuid
+  outlet      Outlet?    @relation(fields: [outletId], references: [id])
+  approvals   Approval[]
+  events      WorkflowEvent[]
+  videoParticipations VideoParticipant[]
+  assignedVideoTasks VideoTask[]
+  videoEvidences VideoEvidence[]
+  videoComments VideoComment[]
+  approvedVideoProjects VideoProject[] @relation("VideoAdminApproval")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+  @@index([roleId])
+  @@index([outletId])
+}
+
+model Outlet {
+  id          String   @id @default(uuid()) @db.Uuid
+  slug        String   @unique
+  name        String   @unique
+  active      Boolean  @default(true)
+  users       User[]
+  profiles    EditorialProfile[]
+  variants    ContentVariant[]
+  trends      Trend[]
+  videoProjects VideoProject[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EditorialProfile {
+  id             String   @id @default(uuid()) @db.Uuid
+  outletId       String   @unique @db.Uuid
+  outlet         Outlet   @relation(fields: [outletId], references: [id])
+  currentVersion Int      @default(1)
+  versions       EditorialProfileVersion[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model EditorialProfileVersion {
+  id          String             @id @default(uuid()) @db.Uuid
+  profileId   String             @db.Uuid
+  profile     EditorialProfile   @relation(fields: [profileId], references: [id])
+  version     Int
+  focus       Json
+  tone        Json
+  limits      Json
+  prompt      String
+  createdById String?            @db.Uuid
+  createdAt   DateTime           @default(now())
+  @@unique([profileId, version])
+  @@index([profileId])
+}
+
+model RssFeed {
+  id            String       @id @default(uuid()) @db.Uuid
+  name          String
+  url           String       @unique
+  category      String
+  country       String       @default("GT")
+  active        Boolean      @default(true)
+  trustLevel    Int          @default(60)
+  sourceType    SourceType
+  lastFetchedAt DateTime?
+  items         FeedItem[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+  @@index([active])
+}
+
+model FeedItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  feedId        String   @db.Uuid
+  feed          RssFeed  @relation(fields: [feedId], references: [id])
+  guid          String
+  title         String
+  normalizedTitle String
+  url           String
+  publishedAt   DateTime?
+  description   String?
+  contentHash   String
+  trendId       String?  @db.Uuid
+  trend         Trend?   @relation(fields: [trendId], references: [id])
+  createdAt     DateTime @default(now())
+  @@unique([feedId, guid])
+  @@unique([contentHash])
+  @@index([normalizedTitle])
+  @@index([trendId])
+}
+
+model Trend {
+  id               String          @id @default(uuid()) @db.Uuid
+  title            String
+  normalizedTitle  String
+  description      String?
+  originUrl        String?
+  sourceName       String?
+  publishedAt      DateTime?
+  observedReach    Int?
+  suggestedOutletId String?        @db.Uuid
+  suggestedOutlet  Outlet?         @relation(fields: [suggestedOutletId], references: [id])
+  userComment      String?
+  status           WorkflowStatus  @default(DETECTED)
+  dedupeKey        String           @unique
+  isFictional      Boolean          @default(false)
+  feedItems        FeedItem[]
+  sources          TrendSource[]
+  scores           TrendScore[]
+  investigations   Investigation[]
+  workflowRuns     WorkflowRun[]
+  variants         ContentVariant[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+  @@index([status, createdAt])
+  @@index([normalizedTitle])
+}
+
+model TrendSource {
+  id            String       @id @default(uuid()) @db.Uuid
+  trendId       String       @db.Uuid
+  trend         Trend        @relation(fields: [trendId], references: [id])
+  title         String
+  url           String
+  domain        String
+  author        String?
+  publishedAt   DateTime?
+  consultedAt   DateTime     @default(now())
+  sourceType    SourceType
+  excerpt       String
+  confidence    Int
+  isPrimary     Boolean      @default(false)
+  accessStatus  AccessStatus @default(ACCESSIBLE)
+  evidences     EvidenceItem[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  @@unique([trendId, url])
+  @@index([trendId, isPrimary])
+}
+
+model TrendScore {
+  id          String   @id @default(uuid()) @db.Uuid
+  trendId     String   @db.Uuid
+  trend       Trend    @relation(fields: [trendId], references: [id])
+  total       Int
+  velocity    Int
+  recurrence  Int
+  sourceQuality Int
+  guatemalaRelevance Int
+  evidence    Json
+  explanation String
+  formulaVersion String
+  calculatedAt DateTime @default(now())
+  @@index([trendId, calculatedAt])
+}
+
+model Investigation {
+  id              String       @id @default(uuid()) @db.Uuid
+  trendId         String       @db.Uuid
+  trend           Trend        @relation(fields: [trendId], references: [id])
+  summary         String
+  mainQuestion    String
+  unconfirmedClaims Json
+  relevantDates   Json
+  people          Json
+  organizations   Json
+  places          Json
+  figures         Json
+  editorialRisks  Json
+  confidence      Int
+  verdict         Verdict
+  opinion         String
+  version         Int          @default(1)
+  evidences       EvidenceItem[]
+  contradictions  Contradiction[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  @@unique([trendId, version])
+  @@index([trendId, verdict])
+}
+
+model EvidenceItem {
+  id              String        @id @default(uuid()) @db.Uuid
+  investigationId String        @db.Uuid
+  investigation   Investigation @relation(fields: [investigationId], references: [id])
+  sourceId        String        @db.Uuid
+  source          TrendSource   @relation(fields: [sourceId], references: [id])
+  claim           String
+  quote           String?
+  confidence      Int
+  confirmed       Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  @@unique([investigationId, sourceId, claim])
+  @@index([investigationId])
+}
+
+model Contradiction {
+  id              String        @id @default(uuid()) @db.Uuid
+  investigationId String        @db.Uuid
+  investigation   Investigation @relation(fields: [investigationId], references: [id])
+  description     String
+  sourceIds       Json
+  severity        RiskLevel
+  resolved        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  @@index([investigationId, resolved])
+}
+
+model ContentVariant {
+  id              String        @id @default(uuid()) @db.Uuid
+  trendId         String        @db.Uuid
+  trend           Trend         @relation(fields: [trendId], references: [id])
+  workflowRunId   String        @db.Uuid
+  workflowRun     WorkflowRun   @relation(fields: [workflowRunId], references: [id])
+  outletId        String        @db.Uuid
+  outlet          Outlet        @relation(fields: [outletId], references: [id])
+  headline        String
+  hook            String
+  angle           String
+  socialCaption   String
+  body            String
+  recommendedFormat String
+  callToAction    String
+  sourceIds       Json
+  factIds         Json
+  confidence      Int
+  riskLevel       RiskLevel
+  warnings        Json
+  reviewClaims    Json
+  status          VariantStatus @default(DRAFT)
+  version         Int           @default(1)
+  approvals       Approval[]
+  videoProject    VideoProject?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  @@unique([workflowRunId, outletId, version])
+  @@index([trendId, status])
+}
+
+model WorkflowRun {
+  id              String          @id @default(uuid()) @db.Uuid
+  trendId         String          @db.Uuid
+  trend           Trend           @relation(fields: [trendId], references: [id])
+  status          WorkflowStatus  @default(DETECTED)
+  idempotencyKey  String          @unique
+  attempt         Int             @default(0)
+  maxAttempts     Int             @default(3)
+  lockedAt        DateTime?
+  lockedBy        String?
+  nextAttemptAt   DateTime?
+  lastError       String?
+  events          WorkflowEvent[]
+  variants        ContentVariant[]
+  notionSync      NotionSync?
+  traces          AgentTrace[]
+  approvals       Approval[]
+  videoProjects   VideoProject[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  completedAt     DateTime?
+  @@index([status, nextAttemptAt])
+  @@index([trendId])
+}
+
+model VideoProject {
+  id               String             @id @default(uuid()) @db.Uuid
+  contentVariantId String             @unique @db.Uuid
+  contentVariant   ContentVariant     @relation(fields: [contentVariantId], references: [id])
+  workflowRunId    String             @db.Uuid
+  workflowRun      WorkflowRun        @relation(fields: [workflowRunId], references: [id])
+  outletId         String             @db.Uuid
+  outlet           Outlet             @relation(fields: [outletId], references: [id])
+  title            String
+  status           VideoProjectStatus @default(PLANNING)
+  currentStage     VideoStage         @default(BRIEF)
+  progress         Int                @default(0)
+  outputKind       String             @default("AUDIOVISUAL")
+  productType      String?
+  objective        String?
+  audience         String?
+  durationSeconds  Int?
+  primaryPlatform  String?
+  productionNotes  String?
+  aspectRatio      String?
+  resolution       String?
+  captionStyle     String?
+  voiceStyle       String?
+  pageSize         String?
+  documentStyle    String?
+  subjectImagePath String?
+  subjectImageName String?
+  subjectImageMime String?
+  subjectImageAnalysis Json?
+  subjectImageAnalyzedAt DateTime?
+  breakingBadge    String             @default("NONE")
+  cardBaseText     String?
+  cardAccentText   String?
+  cardImpactText   String?
+  cardQuestion     String?
+  agentRunStatus   AgentRunStatus     @default(IDLE)
+  adminApprovedById String?           @db.Uuid
+  adminApprovedBy  User?              @relation("VideoAdminApproval", fields: [adminApprovedById], references: [id])
+  adminApprovedAt  DateTime?
+  participants     VideoParticipant[]
+  tasks            VideoTask[]
+  evidences        VideoEvidence[]
+  comments         VideoComment[]
+  agentActivities  VideoAgentActivity[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  completedAt      DateTime?
+  @@index([status, updatedAt])
+  @@index([workflowRunId])
+  @@index([outletId])
+  @@index([adminApprovedById])
+}
+
+model VideoParticipant {
+  id             String       @id @default(uuid()) @db.Uuid
+  videoProjectId String       @db.Uuid
+  videoProject   VideoProject @relation(fields: [videoProjectId], references: [id])
+  userId         String       @db.Uuid
+  user           User         @relation(fields: [userId], references: [id])
+  responsibility String
+  createdAt      DateTime     @default(now())
+  @@unique([videoProjectId, userId])
+  @@index([userId])
+}
+
+model VideoTask {
+  id             String          @id @default(uuid()) @db.Uuid
+  videoProjectId String          @db.Uuid
+  videoProject   VideoProject    @relation(fields: [videoProjectId], references: [id])
+  title          String
+  description    String
+  stage          VideoStage
+  assignedRole   String
+  agentKey       String?
+  agentName      String?
+  assigneeId     String?         @db.Uuid
+  assignee       User?           @relation(fields: [assigneeId], references: [id])
+  status         VideoTaskStatus @default(PENDING)
+  order          Int
+  deliverable    String?
+  dueAt          DateTime?
+  completedAt    DateTime?
+  evidences      VideoEvidence[]
+  activities     VideoAgentActivity[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  @@unique([videoProjectId, order])
+  @@index([assigneeId, status])
+}
+
+model VideoEvidence {
+  id             String            @id @default(uuid()) @db.Uuid
+  videoProjectId String            @db.Uuid
+  videoProject   VideoProject      @relation(fields: [videoProjectId], references: [id])
+  taskId         String?           @db.Uuid
+  task           VideoTask?        @relation(fields: [taskId], references: [id])
+  authorId       String?           @db.Uuid
+  author         User?             @relation(fields: [authorId], references: [id])
+  agentKey       String?
+  agentName      String?
+  type           VideoEvidenceType
+  title          String
+  description    String
+  url            String?
+  metadata       Json?
+  createdAt      DateTime          @default(now())
+  @@index([videoProjectId, createdAt])
+  @@index([taskId])
+  @@index([authorId])
+}
+
+model VideoAgentActivity {
+  id             String       @id @default(uuid()) @db.Uuid
+  videoProjectId String       @db.Uuid
+  videoProject   VideoProject @relation(fields: [videoProjectId], references: [id])
+  taskId         String?      @db.Uuid
+  task           VideoTask?   @relation(fields: [taskId], references: [id])
+  agentKey       String
+  agentName      String
+  agentRole      String
+  action         String
+  detail         String
+  status         String
+  progress       Int
+  createdAt      DateTime     @default(now())
+  @@index([videoProjectId, createdAt])
+  @@index([taskId])
+}
+
+model VideoComment {
+  id             String       @id @default(uuid()) @db.Uuid
+  videoProjectId String       @db.Uuid
+  videoProject   VideoProject @relation(fields: [videoProjectId], references: [id])
+  authorId       String       @db.Uuid
+  author         User         @relation(fields: [authorId], references: [id])
+  body           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  @@index([videoProjectId, createdAt])
+  @@index([authorId])
+}
+
+model WorkflowEvent {
+  id            String         @id @default(uuid()) @db.Uuid
+  workflowRunId String         @db.Uuid
+  workflowRun   WorkflowRun    @relation(fields: [workflowRunId], references: [id])
+  fromStatus    WorkflowStatus?
+  toStatus      WorkflowStatus
+  actorType     String
+  actorId       String?
+  userId        String?        @db.Uuid
+  user          User?          @relation(fields: [userId], references: [id])
+  reason        String
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+  @@index([workflowRunId, createdAt])
+}
+
+model Approval {
+  id              String          @id @default(uuid()) @db.Uuid
+  workflowRunId   String          @db.Uuid
+  workflowRun     WorkflowRun     @relation(fields: [workflowRunId], references: [id])
+  contentVariantId String?         @db.Uuid
+  contentVariant  ContentVariant? @relation(fields: [contentVariantId], references: [id])
+  userId          String          @db.Uuid
+  user            User            @relation(fields: [userId], references: [id])
+  action          ApprovalAction
+  comment         String?
+  contentBefore   Json?
+  contentAfter    Json?
+  riskAtDecision  RiskLevel
+  confirmed       Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  @@index([workflowRunId, createdAt])
+}
+
+model NotionSync {
+  id              String           @id @default(uuid()) @db.Uuid
+  workflowRunId   String           @unique @db.Uuid
+  workflowRun     WorkflowRun      @relation(fields: [workflowRunId], references: [id])
+  idempotencyKey  String           @unique
+  externalPageId  String?
+  externalUrl     String?
+  status          NotionSyncStatus @default(PENDING)
+  payload         Json
+  attemptCount    Int              @default(0)
+  lastError       String?
+  syncedAt        DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model IntegrationEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  integration     String
+  action          String
+  idempotencyKey  String   @unique
+  request         Json?
+  response        Json?
+  success         Boolean
+  error           String?
+  durationMs      Int?
+  createdAt       DateTime @default(now())
+  @@index([integration, createdAt])
+}
+
+model AgentTrace {
+  id              String      @id @default(uuid()) @db.Uuid
+  workflowRunId   String      @db.Uuid
+  workflowRun     WorkflowRun @relation(fields: [workflowRunId], references: [id])
+  agent           String
+  model           String
+  promptVersion   String
+  tools           Json
+  parameters      Json?
+  result          Json?
+  durationMs      Int
+  inputTokens     Int?
+  outputTokens    Int?
+  estimatedCost   Decimal?    @db.Decimal(12, 6)
+  error           String?
+  retryCount      Int         @default(0)
+  finalStatus     String
+  sourceIds       Json
+  createdAt       DateTime    @default(now())
+  @@index([workflowRunId, createdAt])
+}
+
+model Job {
+  id             String    @id @default(uuid()) @db.Uuid
+  type           String
+  payload        Json
+  idempotencyKey String    @unique
+  status         JobStatus @default(PENDING)
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(3)
+  availableAt    DateTime  @default(now())
+  lockedAt       DateTime?
+  lockedBy       String?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  @@index([status, availableAt])
+}

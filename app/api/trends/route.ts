@@ -1,0 +1,12 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/src/db";
+import { requireUser } from "@/src/auth";
+import { hasPermission } from "@/src/domain/permissions";
+import { makeDedupeKey, normalizeTitle } from "@/src/domain/dedupe";
+import { assertSafeExternalUrl } from "@/src/security/urls";
+import { enqueueWorkflow } from "@/src/services/workflow";
+import { apiError, protectMutation } from "@/src/security/http";
+
+const schema = z.object({ title: z.string().min(5).max(240), description: z.string().max(4000).optional(), originUrl: z.union([z.url(), z.literal("")]).optional(), sourceName: z.string().max(160).optional(), publishedAt: z.string().optional(), observedReach: z.coerce.number().int().min(0).max(2_000_000_000).optional(), suggestedOutletSlug: z.string().optional(), userComment: z.string().max(2000).optional() });
+export async function POST(request: Request) { const blocked = protectMutation(request, "trend:create", 15); if (blocked) return blocked; try { const user = await requireUser(); if (!hasPermission(user.roleCode, "trend:create")) throw new Error("El usuario no tiene permiso para crear tendencias."); const data = schema.parse(await request.json()); const url = data.originUrl ? assertSafeExternalUrl(data.originUrl).toString() : null; const outlet = data.suggestedOutletSlug ? await prisma.outlet.findUnique({ where: { slug: data.suggestedOutletSlug } }) : null; const trend = await prisma.trend.upsert({ where: { dedupeKey: makeDedupeKey(data.title, url) }, create: { title: data.title, normalizedTitle: normalizeTitle(data.title), description: data.description || null, originUrl: url, sourceName: data.sourceName || null, publishedAt: data.publishedAt ? new Date(data.publishedAt) : null, observedReach: data.observedReach, suggestedOutletId: outlet?.id, userComment: data.userComment || null, dedupeKey: makeDedupeKey(data.title, url) }, update: { updatedAt: new Date() } }); if (url) await prisma.trendSource.upsert({ where: { trendId_url: { trendId: trend.id, url } }, create: { trendId: trend.id, title: data.title, url, domain: new URL(url).hostname, sourceType: "OTHER", excerpt: data.description || "Fuente de origen registrada; evidencia pendiente de extracción.", confidence: 50, isPrimary: false }, update: {} }); const run = await enqueueWorkflow(trend.id); return NextResponse.json({ trend, workflowRun: run }, { status: 201 }); } catch (error) { return apiError(error); } }

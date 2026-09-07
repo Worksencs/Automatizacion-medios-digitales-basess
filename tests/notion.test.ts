@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { MockNotionAdapter } from "@/src/adapters/notion";
+describe("idempotencia Notion", () => { it("devuelve el mismo registro para un workflow", async () => { const adapter = new MockNotionAdapter(); const payload = { workflowId: "wf-1", title: "Tema", score: 80, status: "READY", investigationSummary: "Resumen", confidence: 90, risk: "LOW", sourceLinks: [], contradictions: [], variants: [], createdAt: new Date().toISOString(), dossierUrl: "http://localhost/demo" }; const first = await adapter.syncTask(payload); const second = await adapter.syncTask({ ...payload, title: "Otro" }); expect(second.externalPageId).toBe(first.externalPageId); expect(second.payload.title).toBe("Tema"); }); });

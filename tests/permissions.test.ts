@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { canApprove, validateApproval } from "@/src/domain/permissions";
+describe("permisos", () => { it("reportero no aprueba", () => expect(canApprove("REPORTERO", "LOW")).toBe(false)); it("editor de marca aprueba bajo y medio de su medio", () => expect(canApprove("EDITOR_MARCA", "MEDIUM", true)).toBe(true)); it("riesgo alto exige comentario y confirmación", () => { expect(() => validateApproval({ role: "EDITOR_SENIOR", risk: "HIGH" })).toThrow("comentario"); expect(() => validateApproval({ role: "EDITOR_SENIOR", risk: "HIGH", comment: "Revisado" })).toThrow("confirmación"); }); it("crítico exige Dirección", () => expect(canApprove("EDITOR_SENIOR", "CRITICAL")).toBe(false)); });

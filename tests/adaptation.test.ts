@@ -1,0 +1,4 @@
+import { describe, expect, it } from "vitest";
+import { MockOpenAIAdapter } from "@/src/adapters/openai";
+import { assertNoInventedFacts } from "@/src/domain/schemas";
+describe("adaptación por medio", () => { it("produce cuatro enfoques distintos con el mismo núcleo factual", async () => { const result = await new MockOpenAIAdapter().runEditorialWorkflow({ title: "Tema cultural", sources: [{ id: "s1", title: "Fuente", url: "https://example.com", domain: "example.com", excerpt: "Hecho confirmado", isPrimary: true }], profiles: [] }); expect(new Set(result.variants.map((variant) => variant.outletSlug)).size).toBe(4); expect(new Set(result.variants.map((variant) => variant.angle)).size).toBe(4); expect(result.variants.find((variant) => variant.outletSlug === "tv-azteca-guate")?.recommendedFormat).toBe("Video explicativo"); assertNoInventedFacts(result.variants, result.investigation.confirmedFacts); }); });

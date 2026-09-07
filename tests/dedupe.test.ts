@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { areLikelyDuplicates, makeDedupeKey, normalizeTitle } from "@/src/domain/dedupe";
+describe("duplicados", () => { it("normaliza acentos, signos y stop words", () => expect(normalizeTitle("¡La tradición de los Barriletes!" )).toBe("tradicion barriletes")); it("detecta títulos equivalentes", () => expect(areLikelyDuplicates("Festival de barriletes en Guatemala", "Guatemala: festival barriletes")).toBe(true)); it("genera claves estables", () => expect(makeDedupeKey("Tema", "https://example.com/")).toBe(makeDedupeKey("tema", "https://example.com"))); });

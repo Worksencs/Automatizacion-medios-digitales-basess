@@ -1,0 +1,4 @@
+ALTER TABLE "VideoProject"
+ADD COLUMN "outputKind" TEXT NOT NULL DEFAULT 'AUDIOVISUAL',
+ADD COLUMN "pageSize" TEXT,
+ADD COLUMN "documentStyle" TEXT;
